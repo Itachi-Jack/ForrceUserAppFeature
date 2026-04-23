@@ -1,43 +1,35 @@
-import React, { useState, useContext , useEffect } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import Slider from '@react-native-community/slider';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { updateSellerPreference } from "../api/sellerPreferencesApi";
-import { SellerPreferenceContext } from "../context/SellerPreferenceContext";
+import { useSellerStore } from "../context/zustandStore";
 import CustomSlider from "../components/CustomSlider";
 
 export default function LocalScreen() {
-  const [radius, setRadius] = useState(1);
   const [loading, setLoading] = useState(false);
   const [sellerCount, setSellerCount] = useState(null);
-  const { sellerPreference, setSellerPreference } = useContext(SellerPreferenceContext);
-  
-
-
+  const sellerPreference = useSellerStore(state => state.sellerPreference);
+  const setSellerPreference = useSellerStore(state => state.setSellerPreference);
+  const radius = sellerPreference.radius;
+  const [tempRadius, setTempRadius] = useState(radius);
   useEffect(() => {
-    if(sellerPreference?.radius){
-      setRadius(sellerPreference.radius);
-
-    }
-  },[sellerPreference]);
+    setTempRadius(radius);
+  }, [radius]);
 
 
   const handleSearch = async () => {
     setLoading(true);
     try {
-      setSellerPreference(prev => ({
-        ...prev,
-        radius: radius,
-      }))
-      
-
+      setSellerPreference({
+        type: "Local Sellers",
+        radius: tempRadius,  // ✅ use tempRadius
+      });
       const payload = {
         seller_preference: "Local Sellers",
-        radius_km: radius,
-      }
+        radius_km: tempRadius,  // ✅ use tempRadius
+      };
       await updateSellerPreference(payload);
-      console.log(payload);
     } catch (err) {
-      console.log(err);
       Alert.alert("Something went wrong");
     } finally {
       setLoading(false);
@@ -50,7 +42,7 @@ export default function LocalScreen() {
       <Text style={styles.title}>How far should we look?</Text>
 
       {/* Big radius display */}
-      <Text style={styles.radiusText}>{radius} km</Text>
+      <Text style={styles.radiusText}>{tempRadius} km</Text>
 
 
       {/* <Slider
@@ -69,13 +61,19 @@ export default function LocalScreen() {
         thumbTintColor="#4A90D9"         // The circle you drag = blue
       /> */}
 
+
       <CustomSlider
         min={sellerPreference.min}
         max={sellerPreference.max}
         step={1}
-        value={radius}
-        onChange={(val) => setRadius(val)}
+        value={tempRadius}
+        onChange={(val) => setTempRadius(val)}           // local only — no store write
+        onSlidingComplete={(val) => {                    // store write only on release
+          setTempRadius(val);
+          setSellerPreference({ radius: val });
+        }}
       />
+
 
       <View style={styles.sliderLabels}>
         <Text style={styles.labelText}>{sellerPreference.min}km</Text>
@@ -89,7 +87,7 @@ export default function LocalScreen() {
         disabled={loading}
 
       >
-        <Text style={styles.buttonText}>Search in {radius} km radius</Text>
+        <Text style={styles.buttonText}>Search in {tempRadius} km radius</Text>
       </TouchableOpacity>
 
       {/* Show spinner OR results, never both */}

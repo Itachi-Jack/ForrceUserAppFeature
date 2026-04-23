@@ -1,82 +1,96 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Text, TouchableOpacity, FlatList } from "react-native";
+import { StyleSheet, View, Text, TouchableOpacity, FlatList, Alert } from "react-native";
+import { Camera } from "react-native-camera-kit";
 import { scanSeller } from "../api/sellerPreferencesApi";
-import QRCodeScanner from 'react-native-qrcode-scanner';
-import { Alert } from "react-native";
+import { useSellerStore } from "../context/zustandStore";
 
 export default function PreferredSeller() {
     const [isScanning, setIsScanning] = useState(false);
     const [hasScanned, setHasScanned] = useState(false);
-    const [sellers, setSellers] = useState([]); // populate as sellers are added
+    const sellerPreference = useSellerStore(state => state.sellerPreference);
+    const setSellerPreference = useSellerStore(state => state.setSellerPreference);
+    const addSeller = useSellerStore(state => state.addSeller);
+    const preferredSellers = useSellerStore(state => state.preferredSellers);
 
-    const handleScan = async (e) => {
+
+
+
+    const handleScan = async (event) => {
         if (hasScanned) return;
 
         setHasScanned(true);
         setIsScanning(false);
 
-        const sellerCode = e.data;
+        const sellerCode = event.nativeEvent.codeStringValue;
+
         console.log("Scanned Seller:", sellerCode);
 
+
+        // 🔥 Append locally FIRST (this is what you want)
+        const newSeller = {
+            id: Date.now(),
+            name: `Seller ${sellerCode}`,
+            description: `Code ${sellerCode}`
+        }
+        addSeller(newSeller);
+
+
+        // (optional) still call backend
         try {
-            const res = await scanSeller(sellerCode);
-            console.log("API Success ", res);
-            Alert.alert("Success", "Seller added successfully");
-            // TODO: push new seller into list, e.g.:
-            // setSellers(prev => [...prev, res]);
+            await scanSeller(sellerCode);
         } catch (err) {
-            console.log("Api Error : ", err?.res || err?.message);
+            console.log("API Error:", err?.response || err?.message);
         }
 
         setTimeout(() => setHasScanned(false), 2000);
     };
 
+
     const renderSeller = ({ item }) => (
-        <View style={styles.card}>
+        <TouchableOpacity
+            onPress={
+                () => Alert.alert("Seller Info", `Name: ${item.name}\nDescription: ${item.description}`)
+            }
+            style={styles.card}>
             <Text style={styles.cardIcon}>🏪</Text>
             <View>
                 <Text style={styles.cardTitle}>{item.name}</Text>
                 <Text style={styles.cardDesc}>{item.description}</Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     if (isScanning) {
         return (
-            <QRCodeScanner
-                onRead={handleScan}
-                showMarker={false}
-                vibrate={false}
-                cameraProps={{ autoFocus: true, focusDepth: 1 }}
-                cameraStyle={{
-                    height: 300,
-                    alignSelf: "center",
-                    width: "90%",
-                    borderRadius: 20,
-                    overflow: "hidden",
-                }}
-                topContent={
-                    <View style={styles.topContainer}>
-                        <Text style={styles.topText}>Scan Seller QR</Text>
-                    </View>
-                }
-                bottomContent={
-                    <View style={styles.bottomContainer}>
-                        <TouchableOpacity
-                            style={styles.cancelBtn}
-                            onPress={() => setIsScanning(false)}
-                        >
-                            <Text style={styles.cancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
-                }
-            />
+            <View style={styles.scannerContainer}>
+                <View style={styles.topContainer}>
+                    <Text style={styles.topText}>Scan Seller QR</Text>
+                </View>
+
+                <Camera
+                    style={styles.camera}
+                    scanBarcode={true}
+                    onReadCode={handleScan}
+                    showFrame={true}
+                    laserColor="#4A90D9"
+                    frameColor="#4A90D9"
+                    cameraType="Back"
+                />
+
+                <View style={styles.bottomContainer}>
+                    <TouchableOpacity
+                        style={styles.cancelBtn}
+                        onPress={() => setIsScanning(false)}
+                    >
+                        <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
         );
     }
 
     return (
         <View style={styles.container}>
-         
             <View style={styles.header}>
                 <View>
                     <Text style={styles.title}>Preferred Seller</Text>
@@ -91,10 +105,9 @@ export default function PreferredSeller() {
                 </TouchableOpacity>
             </View>
 
-            {/* ── Sellers list ── */}
             <FlatList
-                data={sellers}
-                keyExtractor={(item , index) => item.toString ?? index.toString()}
+                data={preferredSellers}
+                keyExtractor={(item, index) => item?.id?.toString() ?? index.toString()}
                 renderItem={renderSeller}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
@@ -141,8 +154,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 18,
         borderRadius: 10,
         marginTop: 15,
-        alignSelf:"stretch",
-        alignItems:"center",
+        alignSelf: "stretch",
+        alignItems: "center",
     },
     scanText: {
         color: "white",
@@ -176,7 +189,7 @@ const styles = StyleSheet.create({
     cardTitle: { fontSize: 16, fontWeight: '700', color: '#222' },
     cardDesc: { fontSize: 13, color: '#888', marginTop: 2 },
 
-    /* ── Empty state ── */
+
     emptyContainer: {
         flex: 1,
         alignItems: 'center',
@@ -187,10 +200,29 @@ const styles = StyleSheet.create({
     emptyText: { fontSize: 17, fontWeight: '600', color: '#555' },
     emptySubText: { fontSize: 13, color: '#aaa', marginTop: 6, textAlign: 'center' },
 
-    /* ── Scanner ── */
-    topContainer: { padding: 20, alignItems: "center" },
-    topText: { fontSize: 18, fontWeight: "600", color: "#222" },
-    bottomContainer: { alignItems: "center", marginTop: 0 },
+
+    scannerContainer: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    camera: {
+        flex: 1,
+    },
+    topContainer: {
+        padding: 20,
+        alignItems: "center",
+        backgroundColor: '#000',
+    },
+    topText: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#fff",       // white since bg is black
+    },
+    bottomContainer: {
+        alignItems: "center",
+        paddingVertical: 24,
+        backgroundColor: '#000',
+    },
     cancelBtn: {
         backgroundColor: "#eee",
         paddingVertical: 10,
