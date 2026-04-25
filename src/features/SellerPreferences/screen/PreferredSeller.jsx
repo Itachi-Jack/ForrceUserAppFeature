@@ -2,40 +2,26 @@ import React, { useState } from "react";
 import { StyleSheet, View, Text, TouchableOpacity, FlatList, Alert } from "react-native";
 import { Camera } from "react-native-camera-kit";
 import { scanSeller } from "../api/sellerPreferencesApi";
-import { useSellerStore } from "../context/zustandStore";
 
 export default function PreferredSeller() {
+
     const [isScanning, setIsScanning] = useState(false);
     const [hasScanned, setHasScanned] = useState(false);
-    const sellerPreference = useSellerStore(state => state.sellerPreference);
-    const setSellerPreference = useSellerStore(state => state.setSellerPreference);
-    const addSeller = useSellerStore(state => state.addSeller);
-    const preferredSellers = useSellerStore(state => state.preferredSellers);
-
-
-
+    const [preferredSellers, setPreferredSellers] = useState([]);
 
     const handleScan = async (event) => {
         if (hasScanned) return;
-
         setHasScanned(true);
         setIsScanning(false);
 
         const sellerCode = event.nativeEvent.codeStringValue;
 
-        console.log("Scanned Seller:", sellerCode);
-
-
-        // 🔥 Append locally FIRST (this is what you want)
-        const newSeller = {
+        setPreferredSellers(prev => [...prev, {
             id: Date.now(),
             name: `Seller ${sellerCode}`,
             description: `Code ${sellerCode}`
-        }
-        addSeller(newSeller);
+        }]);
 
-
-        // (optional) still call backend
         try {
             await scanSeller(sellerCode);
         } catch (err) {

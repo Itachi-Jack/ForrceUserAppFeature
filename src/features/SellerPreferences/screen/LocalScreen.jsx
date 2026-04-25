@@ -1,35 +1,37 @@
-import React, { useState, useContext, useEffect } from "react";
-import Slider from '@react-native-community/slider';
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { updateSellerPreference } from "../api/sellerPreferencesApi";
-import { useSellerStore } from "../context/zustandStore";
 import CustomSlider from "../components/CustomSlider";
+import { useSellerStore } from "../context/zustandStore";
+import { getSellerPreference } from "../api/sellerPreferencesApi";
 
 export default function LocalScreen() {
   const [loading, setLoading] = useState(false);
-  const [sellerCount, setSellerCount] = useState(null);
-  const sellerPreference = useSellerStore(state => state.sellerPreference);
-  const setSellerPreference = useSellerStore(state => state.setSellerPreference);
-  const radius = sellerPreference.radius;
-  const [tempRadius, setTempRadius] = useState(radius);
+  const preference = useSellerStore(state => state.preference);
+  const setPreference = useSellerStore(state => state.setPreference);
+  const { min, max } = useSellerStore(state => state.config);
+  const [tempRadius, setTempRadius] = useState(preference.radius);
   useEffect(() => {
-    setTempRadius(radius);
-  }, [radius]);
-
+    setTempRadius(preference.radius);
+  }, [preference.radius]);
 
   const handleSearch = async () => {
     setLoading(true);
+
+    const payload = {
+      seller_preference: "Local Sellers",
+      radius_km: tempRadius,
+    };
+
+    console.log("Sending payload:", payload);
+
+
     try {
-      setSellerPreference({
-        type: "Local Sellers",
-        radius: tempRadius,  // ✅ use tempRadius
-      });
-      const payload = {
-        seller_preference: "Local Sellers",
-        radius_km: tempRadius,  // ✅ use tempRadius
-      };
       await updateSellerPreference(payload);
+      setPreference({ radius: tempRadius });
+      console.log("API call successful");
     } catch (err) {
+      console.log("Error:", err);
       Alert.alert("Something went wrong");
     } finally {
       setLoading(false);
@@ -38,62 +40,32 @@ export default function LocalScreen() {
 
   return (
     <View style={styles.container}>
-
       <Text style={styles.title}>How far should we look?</Text>
 
-      {/* Big radius display */}
       <Text style={styles.radiusText}>{tempRadius} km</Text>
 
-
-      {/* <Slider
-        style={[styles.slider,]}
-        minimumValue={sellerPreference.min}     
-        maximumValue={sellerPreference.max}     
-        step={1}               
-        value={radius}    
-        thumbSize = {{height : 100, width: 100}}
-        onValueChange={ (value) => {
-          setRadius(value)
-        }         
-      }
-        minimumTrackTintColor="#4A90D9"  // Blue for the LEFT side of slider
-        maximumTrackTintColor="#ccc"     // Gray for the RIGHT side
-        thumbTintColor="#4A90D9"         // The circle you drag = blue
-      /> */}
-
-
       <CustomSlider
-        min={sellerPreference.min}
-        max={sellerPreference.max}
+        min={min}
+        max={max}
         step={1}
         value={tempRadius}
-        onChange={(val) => setTempRadius(val)}           // local only — no store write
-        onSlidingComplete={(val) => {                    // store write only on release
-          setTempRadius(val);
-          setSellerPreference({ radius: val });
-        }}
+        onChange={(val) => setTempRadius(val)}
       />
 
-
       <View style={styles.sliderLabels}>
-        <Text style={styles.labelText}>{sellerPreference.min}km</Text>
-        <Text style={styles.labelText}>{sellerPreference.max}km</Text>
+        <Text style={styles.labelText}>{min} km</Text>
+        <Text style={styles.labelText}>{max} km</Text>
       </View>
 
-      {/* Search button */}
       <TouchableOpacity
         style={styles.searchButton}
         onPress={handleSearch}
         disabled={loading}
-
       >
         <Text style={styles.buttonText}>Search in {tempRadius} km radius</Text>
       </TouchableOpacity>
 
-      {/* Show spinner OR results, never both */}
       {loading && <ActivityIndicator size="large" color="#4A90D9" style={{ marginTop: 20 }} />}
-
-
     </View>
   );
 }
@@ -113,18 +85,14 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   radiusText: {
-    fontSize: 48,              // BIG number in the center
+    fontSize: 48,
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#4A90D9',
     marginBottom: 10,
   },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
   sliderLabels: {
-    flexDirection: 'row',       // Put children SIDE BY SIDE (left-right)
+    flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 30,
   },
@@ -143,30 +111,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  resultBox: {
-    marginTop: 30,
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',        // Shadow (iOS)
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,               // Shadow (Android)
-  },
-  countText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  okButton: {
-    backgroundColor: '#27ae60',  // Green = go!
-    padding: 14,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
 });
-
-

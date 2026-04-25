@@ -6,9 +6,11 @@ export const getSellerPreference = async () => {
     const response = await api.get(
       "/api/method/fis_cart.api.v1.page.seller.preferences.index"
     );
+    
+    console.log("Response data:", response.data.message[0]);
     return response.data;
   } catch (error) {
-    console.log("getSellerCount error:", error);
+    console.log("Error:", error);
     throw error;
   }
 };
@@ -16,6 +18,7 @@ export const getSellerPreference = async () => {
 export const updateSellerPreference = async (payload) => {
   try {
     const res = await api.put('/api/method/fis_cart.api.v1.page.seller.update_preference.index', payload);
+     console.log("PUT response:", res.data);
     return res.data;
   } catch (err) {
     console.log(err);

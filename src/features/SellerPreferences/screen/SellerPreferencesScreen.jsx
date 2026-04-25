@@ -1,110 +1,96 @@
 // HomeScreen.jsx
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import React, { useState, useEffect, useContext } from "react";
-import { getSellerPreference } from '../api/sellerPreferencesApi';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from "react";
+import { getSellerPreference, updateSellerPreference } from '../api/sellerPreferencesApi';
 import { Radio } from '../components/Radio';
-import { updateSellerPreference } from '../api/sellerPreferencesApi';
 import { useSellerStore } from '../context/zustandStore';
 export default function HomeScreen({ navigation }) {
-
-
-  const [loading, setLoading] = useState(false);
-  const sellerPreference = useSellerStore(state => state.sellerPreference);
-  const setSellerPreference = useSellerStore(state => state.setSellerPreference);
-
+  const [loading, setLoading] = useState(true);
+  const preference = useSellerStore(s => s.preference);
+  const setPreference = useSellerStore(s => s.setPreference);
+  const setConfig = useSellerStore(s => s.setConfig);
 
   useEffect(() => {
-  if (!sellerPreference.min) {
     fetchPreference();
-  }
-}, []);
+  }, []);
+
 
   const fetchPreference = async () => {
-
-    setLoading(true);
     try {
       const res = await getSellerPreference();
-
       const data = res.message[0];
-      console.log("Fetched seller preference:", data);
-
-      setSellerPreference({
-        min: data.local_distance.minimum,
-        max: data.local_distance.maximum,
-        radius: data.preferences.radius_km,
-        type: data.preferences.seller_preference,
-      });
+      console.log("Fetched data : " , data);
+       console.log("From backend:", data.preferences.seller_preference);
+      setConfig(
+        data.local_distance.minimum,
+        data.local_distance.maximum,
+      )
+      setPreference({
+      type: data.preferences.seller_preference,
+      radius: data.preferences.radius_km,
+    });
     } catch (err) {
-      console.log(err);
+      console.log("fetchPreference failed:", err);
     } finally {
       setLoading(false);
     }
   };
-  const handleAllSellers = async () => {
-    console.log("All Sellers clicked");
-    setSellerPreference({
-      type: "All Sellers"
-    })
 
+  const handleAllSellers = async () => {
+    setPreference({ type: "All Sellers" });
     try {
-      const payload = {
-        seller_preference: "All Sellers",
-      }
-      await updateSellerPreference(payload);
-      console.log(sellerPreference);
+      await updateSellerPreference({ seller_preference: "All Sellers" });
     } catch (err) {
       console.log(err);
-      throw err;
     }
-
-
   };
-  const handleLocalSeller = () => {
 
-    console.log("Local Seller clicked");
-
+  const handleLocalSeller = async () => {
+    setPreference({ type: "Local Sellers" });
+    await updateSellerPreference({
+      seller_preference: "Local Sellers",
+    });
+    console.log("Local Sellers clicked");
     navigation.navigate('LocalSeller');
   };
-  const handlePreferredSeller = () => {
 
-    console.log("Preferred Seller clicked");
-    setSellerPreference({ type: "Preferred Sellers" });
-
+  const handlePreferredSeller = async () => {
+    setPreference({ type: "Preferred Sellers" });
+    await updateSellerPreference({
+      seller_preference: "Preferred Sellers",
+    });
     navigation.navigate('PreferredSeller');
-  };
+
+  }
+
+
+  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#4A90D9" />;
 
   return (
     <View style={styles.container}>
-
       <Text style={styles.title}>Find Sellers</Text>
       <Text style={styles.subtitle}>What type of seller are you looking for?</Text>
 
-      {/* CHOICE 1 — All Sellers */}
       <TouchableOpacity style={styles.card} onPress={handleAllSellers}>
-
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle}>All Sellers</Text>
             <Text style={styles.cardDesc}>Browse every seller available</Text>
           </View>
-
-          <Radio selected={sellerPreference?.type === "All Sellers"} />
+          <Radio selected={preference.type === "All Sellers"} />
         </View>
       </TouchableOpacity>
 
-      {/* CHOICE 2 — Local Seller — this navigates to the next screen */}
       <TouchableOpacity style={styles.card} onPress={handleLocalSeller}>
         <Text style={styles.cardIcon}>📍</Text>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle}>Local Seller</Text>
           </View>
-          <Radio selected={sellerPreference?.type === "Local Sellers"} />
+          <Radio selected={preference.type === "Local Sellers"} />
         </View>
       </TouchableOpacity>
 
-      {/* CHOICE 3 — Preferred */}
       <TouchableOpacity style={styles.card} onPress={handlePreferredSeller}>
         <Text style={styles.cardIcon}>⭐</Text>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
@@ -112,10 +98,9 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.cardTitle}>Preferred</Text>
             <Text style={styles.cardDesc}>Your saved favourite sellers</Text>
           </View>
-          <Radio selected={sellerPreference?.type === "Preferred Sellers"} />
+          <Radio selected={preference.type === "Preferred Sellers"} />
         </View>
       </TouchableOpacity>
-
     </View>
   );
 }
